@@ -1,7 +1,9 @@
 ﻿using DocuWare.Platform.ServerClient;
+using Bel_DocuWare;
 using System;
 using System.Diagnostics.Metrics;
 using System.Threading.Tasks;
+using Serilog;
 
 class Program
 {
@@ -9,6 +11,10 @@ class Program
 
     static async Task Main(string[] args)
     {
+        Log.Logger = new LoggerConfiguration()
+        .WriteTo.File("log.txt", rollingInterval: RollingInterval.Day)
+        .CreateLogger();
+
         try
         {
             // Credentials and connection details
@@ -21,9 +27,9 @@ class Program
 
             // Hard-coded values
             string fileCabinetId = "7a0017a5-524d-44eb-acb2-52f1f554e4cf";
-            string documentId = "1";
-            string filePathDowload = @"C:\Users\aacor\OneDrive\Desktop\DownloadsCustom";
-            string filePathUpload = @"C:\Users\aacor\OneDrive\Desktop\DocuWareF\Test1_upload_to_DW_app.pdf";
+            string documentId = "14";
+            string filePathDowload = @"C:\Temp\Download";
+            string filePathUpload = @"C:\Temp\Upload\Text.txt";
 
             // Connect to the DocuWare server
             bool isConnected = await oBELDoc.ConnectAsync(uri, username, password).ConfigureAwait(false);
@@ -86,7 +92,12 @@ class Program
         }
         catch (Exception ex)
         {
+            Log.Error(ex, "An error occurred: {ErrorMessage}", ex.Message);
             Console.WriteLine("An error occurred: " + ex.Message);
+        }
+        finally
+        {
+            Log.CloseAndFlush();
         }
     }
 

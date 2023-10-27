@@ -11,15 +11,34 @@ namespace Bel_DocuWare
 
     public class DocuWare
     {
-        static string defaultDownloadLocation = @"C:\Users\Developer\Desktop\DownloadDefault";
         static ServiceConnection _SVCConnection = null;
 
+
+        #region CONNECTION
+
+        /// <summary>
+        /// GetServiceConnection
+        ///  - Provides access to the _SVCConnection field.
+        /// </summary>
+        /// <returns>
+        /// An instance of the `ServiceConnection` class representing the connection to the DocuWare service.
+        /// </returns>
         public ServiceConnection GetServiceConnection()
         {
             return _SVCConnection;
         }
 
-        #region _SVCConnect
+        // CONNECT
+
+        /// <summary>
+        /// ConnectAsync
+        ///  - Establish a connection to a DocuWare service using the provided credentials.
+        /// </summary>
+        /// <param name="uri"></param>
+        /// <param name="username"></param>
+        /// <param name="password"></param>
+        /// <returns>
+        /// A boolean value indicating whether the disconnection was successful(true) or not (false)</returns>
         public async Task<bool> ConnectAsync(Uri uri, string username, string password)
         {
             try
@@ -43,10 +62,15 @@ namespace Bel_DocuWare
             }
         }
 
-        #endregion
 
+        //DISCONNECT
 
-        #region _SVCDisconnect
+        /// <summary>
+        /// Disconnect
+        ///  - Disconnect from the DocuWare service.
+        /// </summary>
+        /// <returns>
+        /// A boolean value indicating whether the disconnection was successful (true) or not (false)</returns>
         public bool Disconnect()
         {
             try
@@ -66,64 +90,20 @@ namespace Bel_DocuWare
         #endregion
 
 
-        #region List Docs
-        public static async Task<List<Document>> ListAllDocumentsAsync(ServiceConnection _SVCConnection, string fileCabinetId, int? count = 100)
-        {
-            try
-            {
-                Console.Write("Retrieving documents...");
-                DocumentsQueryResult queryResult = await _SVCConnection.GetFromDocumentsForDocumentsQueryResultAsync(
-                    fileCabinetId,
-                    count: count)
-                    .ConfigureAwait(false);
+        #region DOWNLOAD
 
-                List<Document> result = new List<Document>();
-                await GetAllDocumentsAsync(queryResult, result);
-
-                // Clear the "Retrieving documents..." informative message by overwriting it with an empty line
-                Console.Write("\r" + new string(' ', Console.WindowWidth - 1) + "\r");
-
-                Console.WriteLine("Documents:");
-                foreach (Document document in result)
-                {
-                    Console.WriteLine($"Document with ID: {document.Id} created at {document.CreatedAt}");
-                }
-                return result;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("An error occurred while listing documents: " + ex.Message);
-                return null;
-            }
-        }
-
-
-        #endregion
-
-
-        #region Get All
-        public static async Task GetAllDocumentsAsync(DocumentsQueryResult queryResult, List<Document> documents)
-        {
-            try
-            {
-                documents.AddRange(queryResult.Items);
-
-                if (queryResult.NextRelationLink != null)
-                {
-                    await GetAllDocumentsAsync(await queryResult.GetDocumentsQueryResultFromNextRelationAsync(), documents);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("An error occurred while getting documents: " + ex.Message);
-            }
-        }
-
-        #endregion
-
-
-        #region Download and Display
-        public static async Task DownloadAndDisplayDocumentContentAsync(ServiceConnection _SVCConnection, string fileCabinetId, string documentId, string filePath)
+        /// <summary>
+        /// DownloadAndDisplayDocumentContentAsync
+        ///  - Downnload and display document information
+        /// </summary>
+        /// <param name="_SVCConnection">Service connection to DocuWare.</param>
+        /// <param name="fileCabinetId">ID of the file cabinet to search for documents.</param>
+        /// <param name="documentId">ID of the document to download and display.</param>
+        /// <param name="filePath">The directory path where the downloaded document will be saved.</param>
+        /// <returns>
+        /// No direct return value (void method).
+        /// </returns>
+        public static async Task<bool> DownloadAndDisplayDocumentContentAsync(ServiceConnection _SVCConnection, string fileCabinetId, string documentId, string filePath)
         {
             try
             {
@@ -136,30 +116,34 @@ namespace Bel_DocuWare
 
                     if (selectedDocument != null)
                     {
-                        Console.WriteLine("Downloading the selected document...");
-
-                        // Download and save the document using the provided filePath
                         await DownloadAndSaveDocument(selectedDocument, filePath);
-
-                        Console.WriteLine("Downloaded and saved the selected document.");
+                        return true;
                     }
                     else
                     {
-                        Console.WriteLine("Document with the specified ID not found.");
+                        return false;
                     }
                 }
                 else
                 {
-                    Console.WriteLine("No documents found in the file cabinet.");
+                    return false;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine("An error occurred while downloading and displaying document content: " + ex.Message);
+                return false;
             }
         }
 
-
+        /// <summary>
+        /// DownloadAndSaveDocument
+        ///  - Download and save the content of a document to a specified file path.
+        /// </summary>
+        /// <param name="document">The Document to be downloaded.</param>
+        /// <param name="downloadLocation">The directory path where the document will be saved.</param>
+        /// <returns>
+        /// An instance of the FileDownloadResult class.
+        /// </returns>
         private static async Task DownloadAndSaveDocument(Document document, string downloadLocation)
         {
             var fileDownloadResult = await DownloadDocumentContentAsync(document);
@@ -191,11 +175,16 @@ namespace Bel_DocuWare
         }
 
 
-        #endregion
 
+        // Download File Result
 
-        #region Download Doc Content
-
+        /// <summary>
+        /// FileDownloadResult
+        /// -A class to represent the result of a document download operation.
+        /// </summary>
+        /// <returns>
+        /// An instance of the FileDownloadResult class.
+        /// </returns>
         public class FileDownloadResult
         {
             public string ContentType { get; set; }
@@ -217,7 +206,16 @@ namespace Bel_DocuWare
             }
         }
 
+        //Downnload Content
 
+        /// <summary>
+        /// DownloadDocumentContentAsync
+        ///  - Download the content of a document as a stream.
+        /// </summary>
+        /// <param name="document">The Document to be downloaded.</param>
+        /// <returns>
+        /// A FileDownloadResult containing the downloaded content or an error message if the download fails.
+        /// </returns>
         public static async Task<FileDownloadResult> DownloadDocumentContentAsync(Document document)
         {
             try
@@ -241,53 +239,8 @@ namespace Bel_DocuWare
                     FileName = contentHeaders.ContentDisposition.FileName
                 };
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return FileDownloadResult.FromError("An error occurred while downloading the document: " + ex.Message);
-            }
-        }
-
-
-        #endregion
-
-
-        #region Upload To File Cabinet
-        public static async Task<Document> UploadSingleFileToFileCabinetAsync(ServiceConnection _SVCConnection, string fileCabinetId, string filePathUpload)
-        {
-            try
-            {
-                // Retrieve the FileCabinet using the provided fileCabinetId
-                var org = _SVCConnection.Organizations[0]; 
-                var fileCabinets = org.GetFileCabinetsFromFilecabinetsRelation().FileCabinet;
-
-                // Find the FileCabinet with the matching ID
-                FileCabinet selectedFileCabinet = fileCabinets.FirstOrDefault(fc => fc.Id == fileCabinetId);
-
-                if (selectedFileCabinet == null)
-                {
-                    Console.WriteLine($"File Cabinet with ID {fileCabinetId} not found.");
-                    return null;
-                }
-
-                if (File.Exists(filePathUpload))
-                {
-                    var fileInfo = new FileInfo(filePathUpload);
-
-                    // Upload the document to the selected File Cabinet
-                    Console.Write("Uploading document...");
-                    var uploadedDocument = await selectedFileCabinet.UploadDocumentAsync(fileInfo).ConfigureAwait(false);
-                    Console.WriteLine("\r" + new string(' ', Console.WindowWidth - 1) + "\rDocument uploaded!");
-                    return uploadedDocument;
-                }
-                else
-                {
-                    Console.WriteLine($"File not found at the specified path: {filePathUpload}");
-                    return null;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("An error occurred while uploading the document: " + ex.Message);
                 return null;
             }
         }
@@ -296,9 +249,72 @@ namespace Bel_DocuWare
         #endregion
 
 
-        #region Delete
+        #region UPLOAD
 
-        public static void DeleteDocumentById(ServiceConnection _SVCConnection, string fileCabinetId, string documentId)
+        /// <summary>
+        /// UploadSingleFileToFileCabinetAsync
+        /// - Upload a single file to a specified file cabinet in DocuWare.
+        /// </summary>
+        /// <param name="_SVCConnection">Service connection to DocuWare.</param>
+        /// <param name="fileCabinetId">ID of the file cabinet to upload the document to.</param>
+        /// <param name="filePathUpload">The file path of the document to be uploaded.</param>
+        /// <returns>
+        /// A Document object representing the uploaded document or null if the upload fails.
+        /// </returns>
+
+        public static async Task<bool> UploadSingleFileToFileCabinetAsync(ServiceConnection _SVCConnection, string fileCabinetId, string filePathUpload)
+        {
+            try
+            {
+                // Retrieve the FileCabinet using the provided fileCabinetId
+                var org = _SVCConnection.Organizations[0];
+                var fileCabinets = org.GetFileCabinetsFromFilecabinetsRelation().FileCabinet;
+
+                // Find the FileCabinet with the matching ID
+                FileCabinet selectedFileCabinet = fileCabinets.FirstOrDefault(fc => fc.Id == fileCabinetId);
+
+                if (selectedFileCabinet == null)
+                {
+                    return false;
+                }
+
+                if (File.Exists(filePathUpload))
+                {
+                    var fileInfo = new FileInfo(filePathUpload);
+
+                    // Upload the document to the selected File Cabinet
+                    var uploadedDocument = await selectedFileCabinet.UploadDocumentAsync(fileInfo).ConfigureAwait(false);
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+
+        #endregion
+
+
+        #region DELETE
+
+        /// <summary>
+        /// DeleteDocumentById
+        ///  - Delete a document from a specified file cabinet in DocuWare by its ID.
+        /// </summary>
+        /// <param name="_SVCConnection">Service connection to DocuWare.</param>
+        /// <param name="fileCabinetId">ID of the file cabinet to delete the document from</param>
+        /// <param name="documentId">ID of the document to be deleted.</param>
+        /// <returns>
+        /// No direct return value (void method).
+        /// </returns>
+
+        public static bool DeleteDocumentById(ServiceConnection _SVCConnection, string fileCabinetId, string documentId)
         {
             try
             {
@@ -312,8 +328,7 @@ namespace Bel_DocuWare
 
                 if (selectedFileCabinet == null)
                 {
-                    Console.WriteLine($"File Cabinet with ID {fileCabinetId} not found.");
-                    return;
+                    return false;
                 }
 
                 Dialog search = selectedFileCabinet.GetDialogFromCustomSearchRelation();
@@ -337,16 +352,82 @@ namespace Bel_DocuWare
                 if (documentToDelete != null)
                 {
                     documentToDelete.DeleteSelfRelation();
-                    Console.Write("\r" + new string(' ', Console.WindowWidth - 1) + $"\rDocument with ID {documentId} deleted successfully.\n");
+                    return true;
                 }
                 else
                 {
-                    Console.Write("\r" + new string(' ', Console.WindowWidth - 1) + "\rDocument with ID " + documentId + " not found or already deleted.\n");
+                    return false;
+                }
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        #endregion
+
+
+        #region GET
+
+        /// <summary>
+        /// ListAllDocumentsAsync
+        ///  - Retrieve a list of documents from a specified file cabinet in DocuWare.
+        /// </summary>
+        /// <param name="_SVCConnection">Service connection to DocuWare</param>
+        /// <param name="fileCabinetId">ID of the file cabinet to list documents from</param>
+        /// <param name="count">The maximum number of documents to retrieve (optional)</param>
+        /// <returns>
+        /// A list of Document objects representing the retrieved documents or null if an error occurs.
+        /// </returns>
+        public static async Task<List<Document>> ListAllDocumentsAsync(ServiceConnection _SVCConnection, string fileCabinetId, int? count = 100)
+        {
+            try
+            {
+                DocumentsQueryResult queryResult = await _SVCConnection.GetFromDocumentsForDocumentsQueryResultAsync(
+                    fileCabinetId,
+                    count: count)
+                    .ConfigureAwait(false);
+
+                List<Document> result = new List<Document>();
+                await GetAllDocumentsAsync(queryResult, result);
+
+                foreach (Document document in result)
+                {
+                    Console.WriteLine($"Document with ID: {document.Id} created at {document.CreatedAt}");
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("An error occurred while listing documents: " + ex.Message);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// GetAllDocumentsAsync
+        /// - Helper method for retrieving all documents recursively.
+        /// </summary>
+        /// <param name="queryResult">The DocumentsQueryResult containing document information.</param>
+        /// <param name="documents">List to store the retrieved documents.</param>
+        /// <returns>
+        /// No direct return value (void method).
+        /// </returns>
+        public static async Task GetAllDocumentsAsync(DocumentsQueryResult queryResult, List<Document> documents)
+        {
+            try
+            {
+                documents.AddRange(queryResult.Items);
+
+                if (queryResult.NextRelationLink != null)
+                {
+                    await GetAllDocumentsAsync(await queryResult.GetDocumentsQueryResultFromNextRelationAsync(), documents);
                 }
             }
             catch (Exception ex)
             {
-                Console.Write("\r" + new string(' ', Console.WindowWidth - 1) + "\rAn error occurred while deleting the document: " + ex.Message + "\n");
+                Console.WriteLine("An error occurred while getting documents: " + ex.Message);
             }
         }
 
