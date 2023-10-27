@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Xml.Linq;
+
 
 namespace Bel_DocuWare
 {
@@ -123,7 +123,7 @@ namespace Bel_DocuWare
 
 
         #region Download and Display
-        public static async Task DownloadAndDisplayDocumentContentAsync(ServiceConnection _SVCConnection, string fileCabinetId)
+        public static async Task DownloadAndDisplayDocumentContentAsync(ServiceConnection _SVCConnection, string fileCabinetId, string documentId, string filePath)
         {
             try
             {
@@ -131,71 +131,21 @@ namespace Bel_DocuWare
 
                 if (documents.Count > 0)
                 {
-                    Console.WriteLine("Select document(s) to download (comma-separated for multiple, e.g., 1,3,5) or type 'all' to download all:");
+                    // Find the document by ID
+                    var selectedDocument = documents.FirstOrDefault(doc => doc.Id == int.Parse(documentId));
 
-                    for (int i = 0; i < documents.Count; i++)
+                    if (selectedDocument != null)
                     {
-                        Console.WriteLine($"{i + 1}. Document ID: {documents[i].Id}");
-                    }
+                        Console.WriteLine("Downloading the selected document...");
 
-                    string userInput = Console.ReadLine();
+                        // Download and save the document using the provided filePath
+                        await DownloadAndSaveDocument(selectedDocument, filePath);
 
-                    if (userInput.ToLower() == "all")
-                    {
-                        Console.Write("Enter the download location (or leave empty to use default): ");
-                        string downloadLocation = Console.ReadLine();
-
-                        if (string.IsNullOrWhiteSpace(downloadLocation))
-                        {
-                            downloadLocation = defaultDownloadLocation;
-                        }
-
-                        Console.WriteLine("Downloading all selected documents...");
-
-                        // Download all documents
-                        foreach (var document in documents)
-                        {
-                            await DownloadAndSaveDocument(document, downloadLocation);
-                        }
-
-                        Console.WriteLine("Downloaded all selected documents.");
+                        Console.WriteLine("Downloaded and saved the selected document.");
                     }
                     else
                     {
-                        string[] selections = userInput.Split(',');
-                        List<int> selectedIndexes = new List<int>();
-
-                        foreach (var selection in selections)
-                        {
-                            if (int.TryParse(selection, out int choice) && choice >= 1 && choice <= documents.Count)
-                            {
-                                selectedIndexes.Add(choice - 1);
-                            }
-                        }
-
-                        if (selectedIndexes.Count > 0)
-                        {
-                            Console.Write("Enter the download location (or leave empty to use default): ");
-                            string downloadLocation = Console.ReadLine();
-
-                            if (string.IsNullOrWhiteSpace(downloadLocation))
-                            {
-                                downloadLocation = defaultDownloadLocation;
-                            }
-
-                            Console.WriteLine("Downloading selected documents...");
-
-                            // Download the selected documents
-                            foreach (int index in selectedIndexes)
-                            {
-                                await DownloadAndSaveDocument(documents[index], downloadLocation);
-                            }
-
-                        }
-                        else
-                        {
-                            Console.WriteLine("No valid selections. Download operation canceled.");
-                        }
+                        Console.WriteLine("Document with the specified ID not found.");
                     }
                 }
                 else
@@ -208,6 +158,7 @@ namespace Bel_DocuWare
                 Console.WriteLine("An error occurred while downloading and displaying document content: " + ex.Message);
             }
         }
+
 
         private static async Task DownloadAndSaveDocument(Document document, string downloadLocation)
         {
@@ -301,79 +252,36 @@ namespace Bel_DocuWare
 
 
         #region Upload To File Cabinet
-        public static async Task<Document> UploadSingleFileToFileCabinetAsync(ServiceConnection _SVCConnection, List<FileCabinet> fileCabinets)
+        public static async Task<Document> UploadSingleFileToFileCabinetAsync(ServiceConnection _SVCConnection, string fileCabinetId, string filePathUpload)
         {
             try
             {
-                FileCabinet selectedFileCabinet = null;
+                // Retrieve the FileCabinet using the provided fileCabinetId
+                var org = _SVCConnection.Organizations[0]; 
+                var fileCabinets = org.GetFileCabinetsFromFilecabinetsRelation().FileCabinet;
 
-                if (fileCabinets.Count == 1)
-                {
-                    // Automatically select the only available File Cabinet
-                    selectedFileCabinet = fileCabinets[0];
-                    Console.WriteLine($"Uploading to File Cabinet: {selectedFileCabinet.Name}");
-                }
-                else if (fileCabinets.Count > 1)
-                {
-                    Console.WriteLine("Choose a File Cabinet to upload the file to:");
-                    for (int i = 0; i < fileCabinets.Count; i++)
-                    {
-                        Console.WriteLine($"{i + 1}. {fileCabinets[i].Name} (ID: {fileCabinets[i].Id})");
-                    }
+                // Find the FileCabinet with the matching ID
+                FileCabinet selectedFileCabinet = fileCabinets.FirstOrDefault(fc => fc.Id == fileCabinetId);
 
-                    Console.Write("Enter the number of the File Cabinet: ");
-                    int choice;
-                    while (!int.TryParse(Console.ReadLine(), out choice) || choice < 1 || choice > fileCabinets.Count)
-                    {
-                        Console.WriteLine("Invalid choice. Enter a valid number.");
-                        Console.Write("Enter the number of the File Cabinet: ");
-                    }
-
-                    selectedFileCabinet = fileCabinets[choice - 1];
-                }
-                else
+                if (selectedFileCabinet == null)
                 {
-                    Console.WriteLine("No File Cabinets available.");
+                    Console.WriteLine($"File Cabinet with ID {fileCabinetId} not found.");
                     return null;
                 }
 
-                Console.WriteLine("Enter index data for the document:");
-                //Console.Write("RECIPIENT: ");
-                //string recipient = Console.ReadLine();
-                Console.Write("SENDER: ");
-                string sender = Console.ReadLine();
-                Console.Write("FILE_NAME: ");
-                string fileName = Console.ReadLine();
-
-                // Create the index data
-                var indexData = new Document()
+                if (File.Exists(filePathUpload))
                 {
-                    Fields = new List<DocumentIndexField>()
-                    {
-                        //DocumentIndexField.Create("RECIPIENT", recipient),
-                        DocumentIndexField.Create("SENDER", sender),
-                        DocumentIndexField.Create("FILE_NAME", fileName),
-                    }
-                };
-
-                Console.Write("Enter the path of the file to upload: ");
-                string filePath = Console.ReadLine();
-
-                if (File.Exists(filePath))
-                {
-                    var fileInfo = new FileInfo(filePath);
+                    var fileInfo = new FileInfo(filePathUpload);
 
                     // Upload the document to the selected File Cabinet
                     Console.Write("Uploading document...");
-                    var uploadedDocument = await selectedFileCabinet
-                        .UploadDocumentAsync(indexData, fileInfo)
-                        .ConfigureAwait(false);
+                    var uploadedDocument = await selectedFileCabinet.UploadDocumentAsync(fileInfo).ConfigureAwait(false);
                     Console.WriteLine("\r" + new string(' ', Console.WindowWidth - 1) + "\rDocument uploaded!");
                     return uploadedDocument;
                 }
                 else
                 {
-                    Console.WriteLine($"File not found at the specified path: {filePath}");
+                    Console.WriteLine($"File not found at the specified path: {filePathUpload}");
                     return null;
                 }
             }
@@ -390,11 +298,25 @@ namespace Bel_DocuWare
 
         #region Delete
 
-        public static void DeleteDocumentById(FileCabinet fileCabinet, string id)
+        public static void DeleteDocumentById(ServiceConnection _SVCConnection, string fileCabinetId, string documentId)
         {
             try
             {
-                Dialog search = fileCabinet.GetDialogFromCustomSearchRelation();
+
+                // Retrieve the FileCabinet using the provided fileCabinetId
+                var org = _SVCConnection.Organizations[0];
+                var fileCabinets = org.GetFileCabinetsFromFilecabinetsRelation().FileCabinet;
+
+                // Find the FileCabinet with the matching ID
+                FileCabinet selectedFileCabinet = fileCabinets.FirstOrDefault(fc => fc.Id == fileCabinetId);
+
+                if (selectedFileCabinet == null)
+                {
+                    Console.WriteLine($"File Cabinet with ID {fileCabinetId} not found.");
+                    return;
+                }
+
+                Dialog search = selectedFileCabinet.GetDialogFromCustomSearchRelation();
 
                 Console.Write("Deleting document...");
                 Document documentToDelete = search.GetDialogFromSelfRelation().GetDocumentsResult(new DialogExpression()
@@ -405,7 +327,7 @@ namespace Bel_DocuWare
             {
                 new DialogExpressionCondition
                 {
-                    Value = new List<string>() {id},
+                    Value = new List<string>() { documentId },
                     DBName = "DWDOCID"
                 }
             }),
@@ -415,11 +337,11 @@ namespace Bel_DocuWare
                 if (documentToDelete != null)
                 {
                     documentToDelete.DeleteSelfRelation();
-                    Console.Write("\r" + new string(' ', Console.WindowWidth - 1) + $"\rDocument with ID {id} deleted succeffuly.\n");
+                    Console.Write("\r" + new string(' ', Console.WindowWidth - 1) + $"\rDocument with ID {documentId} deleted successfully.\n");
                 }
                 else
                 {
-                    Console.Write("\r" + new string(' ', Console.WindowWidth - 1) + "\rDocument with ID " + id + " not found or already deleted.\n");
+                    Console.Write("\r" + new string(' ', Console.WindowWidth - 1) + "\rDocument with ID " + documentId + " not found or already deleted.\n");
                 }
             }
             catch (Exception ex)
@@ -429,9 +351,6 @@ namespace Bel_DocuWare
         }
 
         #endregion
-
-
-
 
     }
 }
